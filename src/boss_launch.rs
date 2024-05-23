@@ -182,6 +182,7 @@ pub fn setup_comms(
     remote_hostname: &str,
     remote_user: &str,
     remote_port_for_comms: Option<u16>,
+    identity_file: Option<String>,
     debug_name: String,
     deploy_behaviour: DeployBehaviour,
     progress_bar: &ProgressBar,
@@ -219,7 +220,7 @@ pub fn setup_comms(
         format!("--deploy=force was set")
     }
     else {
-        match launch_doer_via_ssh(remote_hostname, remote_user, remote_port_for_comms, progress_bar) {
+        match launch_doer_via_ssh(remote_hostname, remote_user, &identity_file, remote_port_for_comms, progress_bar) {
             SshDoerLaunchResult::FailedToRunSsh(e) |
             SshDoerLaunchResult::CommunicationError(e) |
             SshDoerLaunchResult::ExitedUnexpectedly(e) => {
@@ -248,7 +249,7 @@ pub fn setup_comms(
     debug!("Successfully deployed, attempting to run again");
 
     // Check again
-    match launch_doer_via_ssh(remote_hostname, remote_user, remote_port_for_comms, progress_bar) {
+    match launch_doer_via_ssh(remote_hostname, remote_user, &identity_file, remote_port_for_comms, progress_bar) {
         SshDoerLaunchResult::FailedToRunSsh(e) |
         SshDoerLaunchResult::CommunicationError(e) |
         SshDoerLaunchResult::ExitedUnexpectedly(e) => {
@@ -471,6 +472,7 @@ fn output_reader_thread_main(
 /// with a randomly generated secret shared key for encryption, which is returned to the caller
 /// for setting up encrypted communication over the network connection.
 fn launch_doer_via_ssh(remote_hostname: &str, remote_user: &str,
+    ssh_identity: &Option<String>,
     remote_port_for_comms: Option<u16>, progress_bar: &ProgressBar,
 ) -> SshDoerLaunchResult
 {
@@ -521,10 +523,17 @@ fn launch_doer_via_ssh(remote_hostname: &str, remote_user: &str,
     let unix_command = format!("{}/rjrssync/rjrssync {}", REMOTE_TEMP_UNIX, doer_args);
     let remote_command = format!("echo >/dev/null # >nul & {windows_command}\n{unix_command}");
     debug!("Running remote command: {}", remote_command);
+
+    let identity_args = match ssh_identity {
+        Some(i) => vec!["-i", i],
+        None => vec![],
+    };
+
     // Note we use the user's existing ssh tool so that their config/settings will be used for
     // logging in to the remote system (as opposed to using an ssh library called from our code).
     let mut ssh_process = match std::process::Command::new("ssh")
         .arg(user_prefix + remote_hostname)
+        .args(&identity_args)
         .arg(remote_command)
         // Note that even though we're piping stdin, ssh still seems able to accept answers to prompts about
         // host key verification and password input somehow.

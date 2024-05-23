@@ -81,6 +81,9 @@ pub struct BossCliArgs {
     #[arg(long, verbatim_doc_comment)]
     spec: Option<String>,
 
+    #[arg(long)]
+    ssh_identity_file: Option<String>,
+
     /// Ignore or include matching entries inside a folder being synced
     ///
     /// Can be specified multiple times to define a list of filters.
@@ -782,6 +785,7 @@ fn execute_spec(spec: Spec, args: &BossCliArgs, progress_bar: &ProgressBar) -> E
         &spec.src_hostname,
         &spec.src_username,
         args.remote_port,
+        args.ssh_identity_file.clone(),
         "src".to_string(),
         spec.deploy_behaviour,
         &progress_bar,
@@ -796,6 +800,7 @@ fn execute_spec(spec: Spec, args: &BossCliArgs, progress_bar: &ProgressBar) -> E
         &spec.dest_hostname,
         &spec.dest_username,
         args.remote_port,
+        args.ssh_identity_file.clone(),
         "dest".to_string(),
         spec.deploy_behaviour,
         &progress_bar,
