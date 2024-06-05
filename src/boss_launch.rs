@@ -242,7 +242,7 @@ pub fn setup_comms(
     };
 
     // New version is needed
-    if let Err(e) = deploy_to_remote(remote_hostname, remote_user, &deploy_reason, deploy_behaviour, progress_bar) {
+    if let Err(e) = deploy_to_remote(remote_hostname, remote_user, &identity_file, &deploy_reason, deploy_behaviour, progress_bar) {
         return Err(format!("Failed to deploy to remote: {e}"));
     }
 

@@ -17,8 +17,8 @@ use crate::*;
 use embedded_binaries::EmbeddedBinaries;
 
 /// Deploys a pre-built binary of rjrssync to the given remote computer, ready to be executed.
-pub fn deploy_to_remote(remote_hostname: &str, remote_user: &str, reason: &str,
-    deploy_behaviour: DeployBehaviour, progress_bar: &ProgressBar)
+pub fn deploy_to_remote(remote_hostname: &str, remote_user: &str, ssh_identity: &Option<String>,
+                    reason: &str, deploy_behaviour: DeployBehaviour, progress_bar: &ProgressBar)
 -> Result<(), String>
 {
     profile_this!();
@@ -44,7 +44,12 @@ pub fn deploy_to_remote(remote_hostname: &str, remote_user: &str, reason: &str,
     // logging in to the remote system (as opposed to using an ssh library called from our code).
     let remote_command = format!("echo >/dev/null # >nul & echo Remote system is Windows %PROCESSOR_ARCHITECTURE%\necho Remote system is `uname -a`");
     debug!("Running remote command: {}", remote_command);
-    let os_test_output = match run_process_with_live_output("ssh", &[user_prefix.clone() + remote_hostname, remote_command.to_string()]) {
+    let ssh_args = if let Some(id_file) = ssh_identity {
+        vec!("-i".to_string(), id_file.clone(), user_prefix.clone() + remote_hostname, remote_command.to_string())
+    } else {
+        vec!(user_prefix.clone() + remote_hostname, remote_command.to_string())
+    };
+    let os_test_output = match run_process_with_live_output("ssh", &ssh_args) {
         Err(e) => return Err(format!("Error running ssh: {}", e)),
         Ok(output) if output.exit_status.success() => output.stdout,
         Ok(output) => return Err(format!("Error checking remote OS. Exit status from ssh: {}", output.exit_status)),
@@ -111,7 +116,13 @@ pub fn deploy_to_remote(remote_hostname: &str, remote_user: &str, reason: &str,
     let source_spec = staging_dir;
     let remote_spec = format!("{user_prefix}{remote_hostname}:{remote_temp}");
     debug!("Copying {} to {}", source_spec.display(), remote_spec);
-    match run_process_with_live_output("scp", &[OsStr::new("-r"), source_spec.as_os_str(), OsStr::new(&remote_spec)]) {
+    let scp_args = if let Some(id_file) = ssh_identity {
+        vec!(OsStr::new("-i"), OsStr::new(id_file), OsStr::new("-r"), source_spec.as_os_str(), OsStr::new(&remote_spec))
+    } else {
+        vec!(OsStr::new("-r"), source_spec.as_os_str(), OsStr::new(&remote_spec))
+    };
+
+    match run_process_with_live_output("scp", &scp_args) {
         Err(e) => return Err(format!("Error running scp: {}", e)),
         Ok(s) if s.exit_status.success() => {
             // Good!
@@ -126,7 +137,13 @@ pub fn deploy_to_remote(remote_hostname: &str, remote_user: &str, reason: &str,
         // we are parsing the stdout, but for the command here we can wait for it to finish easily.
         let remote_command = format!("cd {remote_rjrssync_folder} && chmod +x rjrssync");
         debug!("Running remote command: {}", remote_command);
-        match run_process_with_live_output("ssh", &[user_prefix + remote_hostname, remote_command]) {
+        let args = if let Some(identity) = ssh_identity {
+            vec!("-i".to_string(), identity.clone(), user_prefix.clone() + remote_hostname, remote_command.clone())
+        } else {
+            vec!(user_prefix + remote_hostname, remote_command)
+        };
+
+        match run_process_with_live_output("ssh", &args) {
             Err(e) => return Err(format!("Error running ssh: {}", e)),
             Ok(s) if s.exit_status.success() => {
                 // Good!
