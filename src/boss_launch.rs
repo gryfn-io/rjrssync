@@ -525,7 +525,7 @@ fn launch_doer_via_ssh(remote_hostname: &str, remote_user: &str,
     debug!("Running remote command: {}", remote_command);
 
     let identity_args = match ssh_identity {
-        Some(i) => vec!["-i", i],
+        Some(i) => vec!["-i", i, "-oStrictHostKeyChecking=no"],
         None => vec![],
     };
 

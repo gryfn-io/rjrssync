@@ -45,9 +45,17 @@ pub fn deploy_to_remote(remote_hostname: &str, remote_user: &str, ssh_identity: 
     let remote_command = format!("echo >/dev/null # >nul & echo Remote system is Windows %PROCESSOR_ARCHITECTURE%\necho Remote system is `uname -a`");
     debug!("Running remote command: {}", remote_command);
     let ssh_args = if let Some(id_file) = ssh_identity {
-        vec!("-i".to_string(), id_file.clone(), user_prefix.clone() + remote_hostname, remote_command.to_string())
+        vec!(
+            "-i".to_string(),
+            id_file.clone(),
+            "-oStrictHostKeyChecking=no".to_string(),
+            user_prefix.clone() + remote_hostname,
+            remote_command.to_string())
     } else {
-        vec!(user_prefix.clone() + remote_hostname, remote_command.to_string())
+        vec!(
+            "-oStrictHostKeyChecking=no".to_string(),
+            user_prefix.clone() + remote_hostname,
+            remote_command.to_string())
     };
     let os_test_output = match run_process_with_live_output("ssh", &ssh_args) {
         Err(e) => return Err(format!("Error running ssh: {}", e)),
@@ -117,9 +125,11 @@ pub fn deploy_to_remote(remote_hostname: &str, remote_user: &str, ssh_identity: 
     let remote_spec = format!("{user_prefix}{remote_hostname}:{remote_temp}");
     debug!("Copying {} to {}", source_spec.display(), remote_spec);
     let scp_args = if let Some(id_file) = ssh_identity {
-        vec!(OsStr::new("-i"), OsStr::new(id_file), OsStr::new("-r"), source_spec.as_os_str(), OsStr::new(&remote_spec))
+        vec!(OsStr::new("-i"), OsStr::new(id_file),
+             OsStr::new("-oStrictHostKeyChecking=no"),
+             OsStr::new("-r"), source_spec.as_os_str(), OsStr::new(&remote_spec))
     } else {
-        vec!(OsStr::new("-r"), source_spec.as_os_str(), OsStr::new(&remote_spec))
+        vec!(OsStr::new("-oStrictHostKeyChecking=no"), OsStr::new("-r"), source_spec.as_os_str(), OsStr::new(&remote_spec))
     };
 
     match run_process_with_live_output("scp", &scp_args) {
@@ -138,9 +148,19 @@ pub fn deploy_to_remote(remote_hostname: &str, remote_user: &str, ssh_identity: 
         let remote_command = format!("cd {remote_rjrssync_folder} && chmod +x rjrssync");
         debug!("Running remote command: {}", remote_command);
         let args = if let Some(identity) = ssh_identity {
-            vec!("-i".to_string(), identity.clone(), user_prefix.clone() + remote_hostname, remote_command.clone())
+            vec!(
+                "-i".to_string(),
+                identity.clone(),
+                "-oStrictHostKeyChecking=no".to_string(),
+                user_prefix.clone() + remote_hostname,
+                remote_command.clone()
+            )
         } else {
-            vec!(user_prefix + remote_hostname, remote_command)
+            vec!(
+                "-oStrictHostKeyChecking=no".to_string(),
+                user_prefix + remote_hostname,
+                remote_command
+            )
         };
 
         match run_process_with_live_output("ssh", &args) {
